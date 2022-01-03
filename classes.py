@@ -41,6 +41,7 @@ class Round:
         t_1_area_name: str,
         t_1_weapon: str,
         t_1_weapon_type: str,
+        t_1_name: str,
         t_1_has_molotov: bool,
         t_1_has_grenade: bool,
         t_1_has_smoke: bool,
@@ -52,6 +53,7 @@ class Round:
         t_2_area_name: str,
         t_2_weapon: str,
         t_2_weapon_type: str,
+        t_2_name: str,
         t_2_has_molotov: bool,
         t_2_has_grenade: bool,
         t_2_has_smoke: bool,
@@ -63,6 +65,7 @@ class Round:
         t_3_area_name: str,
         t_3_weapon: str,
         t_3_weapon_type: str,
+        t_3_name: str,
         t_3_has_molotov: bool,
         t_3_has_grenade: bool,
         t_3_has_smoke: bool,
@@ -74,6 +77,7 @@ class Round:
         t_4_area_name: str,
         t_4_weapon: str,
         t_4_weapon_type: str,
+        t_4_name: str,
         t_4_has_molotov: bool,
         t_4_has_grenade: bool,
         t_4_has_smoke: bool,
@@ -85,6 +89,7 @@ class Round:
         t_5_area_name: str,
         t_5_weapon: str,
         t_5_weapon_type: str,
+        t_5_name: str,
         t_5_has_molotov: bool,
         t_5_has_grenade: bool,
         t_5_has_smoke: bool,
@@ -171,6 +176,7 @@ class Round:
         self.t_1_area_name = t_1_area_name
         self.t_1_weapon = t_1_weapon
         self.t_1_weapon_type = t_1_weapon_type
+        self.t_1_name = t_1_name
         self.t_1_has_molotov = t_1_has_molotov
         self.t_1_has_grenade = t_1_has_grenade
         self.t_1_has_smoke = t_1_has_smoke
@@ -182,6 +188,7 @@ class Round:
         self.t_2_area_name = t_2_area_name
         self.t_2_weapon = t_2_weapon
         self.t_2_weapon_type = t_2_weapon_type
+        self.t_2_name = t_2_name
         self.t_2_has_molotov = t_2_has_molotov
         self.t_2_has_grenade = t_2_has_grenade
         self.t_2_has_smoke = t_2_has_smoke
@@ -193,6 +200,7 @@ class Round:
         self.t_3_area_name = t_3_area_name
         self.t_3_weapon = t_3_weapon
         self.t_3_weapon_type = t_3_weapon_type
+        self.t_3_name = t_3_name
         self.t_3_has_molotov = t_3_has_molotov
         self.t_3_has_grenade = t_3_has_grenade
         self.t_3_has_smoke = t_3_has_smoke
@@ -204,6 +212,7 @@ class Round:
         self.t_4_area_name = t_4_area_name
         self.t_4_weapon = t_4_weapon
         self.t_4_weapon_type = t_4_weapon_type
+        self.t_4_name = t_4_name
         self.t_4_has_molotov = t_4_has_molotov
         self.t_4_has_grenade = t_4_has_grenade
         self.t_4_has_smoke = t_4_has_smoke
@@ -215,6 +224,7 @@ class Round:
         self.t_5_area_name = t_5_area_name
         self.t_5_weapon = t_5_weapon
         self.t_5_weapon_type = t_5_weapon_type
+        self.t_5_name = t_5_name
         self.t_5_has_molotov = t_5_has_molotov
         self.t_5_has_grenade = t_5_has_grenade
         self.t_5_has_smoke = t_5_has_smoke

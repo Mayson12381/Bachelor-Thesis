@@ -3,13 +3,16 @@ from classes import Round, Kevlar
 import pandas as pd
 from os import walk
 
-def get_bomb_plant_index(frames: list) -> int:
+time_to_foi = 30
+
+def get_bomb_plant_index(frames: list):
     for index, frame in enumerate(frames):
         if frame["bombPlanted"] == True:
             return index
+    return None
 
 
-def getKevlarType(kevlar, hasHelmet) -> Kevlar:
+def getKevlarType(kevlar, hasHelmet):
     if hasHelmet:
         return Kevlar.HELMET
     if kevlar >= 0:
@@ -81,6 +84,55 @@ def getUtility(inv: list):
     return grenades
 
 
+def bomb_last_bombsite(round):
+    A = ['BombsiteA', 'Graveyard', 'Pit', 'TopofMid', 'Arch']
+    B = ['BombsiteB', 'Banana', 'CTSpawn', 'Quad', 'Ruins']
+    lastBombBomsite = None
+    for frame in round['frames']:
+        for object in frame['world']:
+            if object['objectType'] == 'bomb':
+                if object['areaName'] in A:
+                    lastBombBomsite = 'A'
+                elif object['areaName'] in B:
+                    lastBombBomsite = 'B'
+    return lastBombBomsite
+
+
+def was_round_t_success(round, fop):
+    vs_eco = round["ctBuyType"] == "Full Eco"
+    half_vs_half = round["tBuyType"] == "Semi Eco" and round["ctBuyType"] == "Semi Eco"
+    force_and_full_vs_eco_or_half = round["tBuyType"] not in ['Full Eco', 'Semi Eco'] and round["ctBuyType"] in ['Full Eco', 'Semi Eco']
+    if round["roundEndReason"] in ['TerroristsWin', 'TargetBombed']:
+        return True
+    if round["roundEndReason"] == 'TargetSaved':
+        return False
+    if round["bombPlantTick"] != None:
+        if vs_eco or half_vs_half or force_and_full_vs_eco_or_half:
+            return False
+        if fop['ct']["alivePlayers"] - fop['t']["alivePlayers"] <= 1:
+            return True
+    return False
+
+
+def frame_index_of_last_death(round):
+    def find_player(players, player_name):
+        for player in players:
+            if player['name'] == player_name:
+                return player
+        return None
+
+    last_index = None
+    A = ['BombsiteA', 'Graveyard', 'Pit', 'TopofMid', 'Arch']
+    B = ['BombsiteB', 'Banana', 'CTSpawn', 'Quad', 'Ruins']
+    for (index, frame) in enumerate(round['frames']):
+        if not frame['t']['players'] == 5: return last_index
+        for player in frame['t']['players']:
+            if player['hp'] == 0 and find_player(round['frames'][index - 1]['t']['players'], player['name'])['hp'] > 0:
+                if player['areaName'] in A or player['areaName'] in B:
+                    last_index = index
+    return last_index
+
+
 def extract_data_from_parsed_demo(parsed_demo_path: str, file_name: str):
     data = json.load(open(parsed_demo_path))
     rounds = []
@@ -88,20 +140,28 @@ def extract_data_from_parsed_demo(parsed_demo_path: str, file_name: str):
     for round in data["gameRounds"]:
         if (not round["isWarmup"]
         and round["frames"]
-        and len(round["frames"]) > 20
+        and len(round["frames"]) > time_to_foi
         and round["weaponFires"]
         and round["winningTeam"]):
+            bomb_plant_index = None
             if round["bombPlantTick"]:
                 bomb_plant_index = get_bomb_plant_index(round["frames"])
-            else:
+            if bomb_plant_index == None:
                 bomb_plant_index = len(round["frames"]) - 1
             # frame of plant
             fop = round["frames"][bomb_plant_index]
             # frame of interest
-            foi = round["frames"][bomb_plant_index - 20]
+            if round['roundEndReason'] == 'TargetSaved':
+                foi_timer = (frame_index_of_last_death(round) or bomb_plant_index) - time_to_foi
+            else:
+                foi_timer = bomb_plant_index - time_to_foi
+            foi = round["frames"][foi_timer]
             # print(foi["seconds"]) # 30771
 
-            if foi["t"]["players"] and len(foi["t"]["players"]) == 5 and foi["ct"]["players"] and len(foi["ct"]["players"]) == 5:
+            if (foi["t"]["players"]
+            and len(foi["t"]["players"]) == 5
+            and foi["ct"]["players"]
+            and len(foi["ct"]["players"]) == 5):
                 round_object = Round(
                     demo_name=data["matchID"].split("/")[2],
                     t_team_name=round["tTeam"],
@@ -109,7 +169,7 @@ def extract_data_from_parsed_demo(parsed_demo_path: str, file_name: str):
                     round_number=round["roundNum"],
                     round_end_reason=round["roundEndReason"],
                     bomb_planted=round["bombPlantTick"] != None,
-                    bombsite=fop["bombsite"],
+                    bombsite=fop["bombsite"] or bomb_last_bombsite(round),
                     t_rifles=getRifleAmount(foi["t"]["players"]),
                     t_pistols=getPistolAmount(foi["t"]["players"]),
                     ct_alive_at_poi=foi["ct"]["alivePlayers"],
@@ -127,6 +187,7 @@ def extract_data_from_parsed_demo(parsed_demo_path: str, file_name: str):
                     t_1_area_name=foi["t"]["players"][0]["areaName"],
                     t_1_weapon=getMainWeapon(foi["t"]["players"][0]["inventory"])["weapon_name"],
                     t_1_weapon_type=getMainWeapon(foi["t"]["players"][0]["inventory"])["weapon_type"],
+                    t_1_name=foi['t']['players'][0]['name'],
                     t_1_has_molotov=getUtility(foi["t"]["players"][0]["inventory"])["molotov"],
                     t_1_has_grenade=getUtility(foi["t"]["players"][0]["inventory"])["grenade"],
                     t_1_has_smoke=getUtility(foi["t"]["players"][0]["inventory"])["smoke"],
@@ -138,6 +199,7 @@ def extract_data_from_parsed_demo(parsed_demo_path: str, file_name: str):
                     t_2_area_name=foi["t"]["players"][1]["areaName"],
                     t_2_weapon=getMainWeapon(foi["t"]["players"][1]["inventory"])["weapon_name"],
                     t_2_weapon_type=getMainWeapon(foi["t"]["players"][1]["inventory"])["weapon_type"],
+                    t_2_name=foi['t']['players'][1]['name'],
                     t_2_has_molotov=getUtility(foi["t"]["players"][1]["inventory"])["molotov"],
                     t_2_has_grenade=getUtility(foi["t"]["players"][1]["inventory"])["grenade"],
                     t_2_has_smoke=getUtility(foi["t"]["players"][1]["inventory"])["smoke"],
@@ -149,6 +211,7 @@ def extract_data_from_parsed_demo(parsed_demo_path: str, file_name: str):
                     t_3_area_name=foi["t"]["players"][2]["areaName"],
                     t_3_weapon=getMainWeapon(foi["t"]["players"][2]["inventory"])["weapon_name"],
                     t_3_weapon_type=getMainWeapon(foi["t"]["players"][2]["inventory"])["weapon_type"],
+                    t_3_name=foi['t']['players'][2]['name'],
                     t_3_has_molotov=getUtility(foi["t"]["players"][2]["inventory"])["molotov"],
                     t_3_has_grenade=getUtility(foi["t"]["players"][2]["inventory"])["grenade"],
                     t_3_has_smoke=getUtility(foi["t"]["players"][2]["inventory"])["smoke"],
@@ -160,6 +223,7 @@ def extract_data_from_parsed_demo(parsed_demo_path: str, file_name: str):
                     t_4_area_name=foi["t"]["players"][3]["areaName"],
                     t_4_weapon=getMainWeapon(foi["t"]["players"][3]["inventory"])["weapon_name"],
                     t_4_weapon_type=getMainWeapon(foi["t"]["players"][3]["inventory"])["weapon_type"],
+                    t_4_name=foi['t']['players'][3]['name'],
                     t_4_has_molotov=getUtility(foi["t"]["players"][3]["inventory"])["molotov"],
                     t_4_has_grenade=getUtility(foi["t"]["players"][3]["inventory"])["grenade"],
                     t_4_has_smoke=getUtility(foi["t"]["players"][3]["inventory"])["smoke"],
@@ -171,6 +235,7 @@ def extract_data_from_parsed_demo(parsed_demo_path: str, file_name: str):
                     t_5_area_name=foi["t"]["players"][4]["areaName"],
                     t_5_weapon=getMainWeapon(foi["t"]["players"][4]["inventory"])["weapon_name"],
                     t_5_weapon_type=getMainWeapon(foi["t"]["players"][4]["inventory"])["weapon_type"],
+                    t_5_name=foi['t']['players'][4]['name'],
                     t_5_has_molotov=getUtility(foi["t"]["players"][4]["inventory"])["molotov"],
                     t_5_has_grenade=getUtility(foi["t"]["players"][4]["inventory"])["grenade"],
                     t_5_has_smoke=getUtility(foi["t"]["players"][4]["inventory"])["smoke"],
@@ -238,24 +303,9 @@ def extract_data_from_parsed_demo(parsed_demo_path: str, file_name: str):
 
 
     df = pd.DataFrame(rounds)
-    df.to_csv("data_20/" + file_name + ".csv", index=False)
+    df.to_csv("data_" + str(time_to_foi)  + "/" + file_name + ".csv", index=False)
 
-def was_round_t_success(round, fop):
-    vs_eco = round["ctBuyType"] == "Full Eco"
-    half_vs_half = round["tBuyType"] == "Semi Eco" and round["ctBuyType"] == "Semi Eco"
-    force_and_full_vs_eco_or_half = round["tBuyType"] not in ['Full Eco', 'Semi Eco'] and round["ctBuyType"] in ['Full Eco', 'Semi Eco']
-    if round["roundEndReason"] in ['TerroristsWin', 'TargetBombed']:
-        return True
-    if round["roundEndReason"] == 'TargetSaved':
-        return False
-    if round["bombPlantTick"] != None:
-        if vs_eco or half_vs_half or force_and_full_vs_eco_or_half:
-            return False
-        if fop['ct']["alivePlayers"] - fop['t']["alivePlayers"] <= 1:
-            return True
-    return False
-
-data_file_paths = next(walk('./data_20'), (None, None, []))[2]
+data_file_paths = next(walk('./data_' + str(time_to_foi)), (None, None, []))[2]
 data_file_names = [x.split('.')[0] for x in data_file_paths if x.endswith('.csv')]
 json_file_paths = next(walk('./parsed_demos'), (None, None, []))[2]
 
